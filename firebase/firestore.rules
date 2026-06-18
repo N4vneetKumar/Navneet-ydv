@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuth() && userDoc().role == 'admin';
+    }
+
+    function isPickupBoy() {
+      return isAuth() && userDoc().role == 'pickup_boy';
+    }
+
+    function isCustomer() {
+      return isAuth() && userDoc().role == 'customer';
+    }
+
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+      allow update: if isAuth() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fcm_token', 'name', 'address', 'notification_enabled']);
+
+      match /addresses/{addressId} {
+        allow read, write: if isAuth() && request.auth.uid == userId;
+      }
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuth() && (
+        isAdmin() ||
+        resource.data.customer_id == request.auth.uid ||
+        resource.data.assigned_boy_id == request.auth.uid
+      );
+      allow create: if isCustomer();
+      allow update: if isAdmin() || (
+        isPickupBoy() && resource.data.assigned_boy_id == request.auth.uid
+      );
+    }
+
+    match /rates/{rateId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    match /activity/{activityId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /disputes/{disputeId} {
+      allow read: if isAdmin() || (
+        isAuth() && resource.data.customer_id == request.auth.uid
+      );
+      allow create: if isCustomer();
+    }
+  }
+}

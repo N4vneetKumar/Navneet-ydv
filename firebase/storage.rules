@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /orders/{orderId}/{photoType}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && photoType in ['customer_photo', 'scale_photo', 'vehicle_photo']
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
