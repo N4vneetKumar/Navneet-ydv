@@ -1,0 +1,14 @@
+{
+  "name": "recycle-me-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Recycle Me - Scrap pickup management app",
+  "scripts": {
+    "backend": "npm run dev --prefix backend",
+    "backend:migrate": "npm run migrate --prefix backend",
+    "backend:seed": "npm run seed --prefix backend",
+    "mobile": "npm start --prefix mobile",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  }
+}

@@ -1,0 +1,254 @@
+You are an expert full-stack mobile app developer. Build a complete, production-ready android mobile application based on the following exhaustive specifications.
+If I ask for a change that contradicts this blueprint, flag it and ask me for clarification before proceeding.
+
+1. CORE PROJECT PHILOSOPHY
+Single Codebase: One app, but with Role-Based Access Control (RBAC).
+
+The 3 Roles: Customer, Admin, Pickup_Boy.
+
+Login Logic: User logs in with Mobile Number + OTP. The system checks the role in the database and dynamically renders the specific UI for that role.
+
+Multi-Admin: All Admins have equal permissions. Any Admin can add, edit, or remove Customers, Pickup Boys, and other Admins. No Super/Sub hierarchy.
+
+Primary Goal: Replace phone calls, eliminate paper chits, and implement a digital anti-scam system to prevent financial leakage by pickup boys.
+
+2. THE ANTI-SCAM FORTRESS (NON-NEGOTIABLE RULES)
+The following 5 layers must be hard-coded into the Pickup Boy's order completion flow to protect the business:
+
+OTP Verification: When the boy enters the weight, a 4-digit OTP is sent via Push Notification (with SMS fallback) to the Customer's app. The boy cannot complete the order without entering this OTP.
+
+Mandatory Photos: The boy must take 2 mandatory photos via the app camera (gallery access forbidden to prevent fakes):
+
+Photo 1: Scrap placed on the weighing scale with the weight dial clearly visible.
+
+Photo 2: The scrap loaded onto the vehicle.
+
+Instant Digital Receipt + Dispute: The customer gets an instant push notification with the exact weight and amount. A "Raise Dispute" button appears on their home screen for exactly 5 minutes post-completion.
+
+Auto-Flagging Logic: If the boy's entered actual weight is less than 50% of the customer's estimated weight, flag the order RED on the Admin Dashboard.
+
+GPS Geo-Fencing: The boy must be within 100 meters of the customer's stored GPS address to mark an order as "Completed".
+
+3. TECH STACK REQUIREMENTS
+Frontend: react.js
+
+Backend: Node.js with Express (or Firebase Cloud Functions) + Firebase Firestore (for real-time sync) and PostgreSQL (for financial ledgers).
+
+Maps: Google Maps API (for address autocomplete and live navigation).
+
+Notifications: Firebase Cloud Messaging (FCM) for Push Notifications. Twilio/Vonage for SMS fallback.
+
+4. DATABASE SCHEMA (MINIMUM REQUIREMENTS)
+Users Table (users):
+
+id (UUID), name (String), phone (String, Unique), role (Enum: 'customer', 'pickup_boy', 'admin'), address (JSON object), total_earnings (Float, default 0), total_pickups (Int, default 0), commission_rate (Float, for boys), is_active (Boolean, default true), fcm_token (String), created_at (Timestamp).
+
+Orders Table (orders):
+
+id (UUID), customer_id (FK), assigned_boy_id (FK, nullable), items (JSON - list of scrap types), estimated_weight (Float), actual_weight (Float, nullable), total_amount (Float), payment_mode (Enum: 'cash', 'upi'), status (Enum: 'pending', 'assigned', 'in_progress', 'completed', 'cancelled', 'disputed'), customer_photo (URL, optional), scale_photo (URL), vehicle_photo (URL), pickup_date (Date), pickup_time_slot (String), gps_lat (Float), gps_long (Float), created_at (Timestamp).
+
+5. PART A: CUSTOMER APP (End-User Interface)
+When a user with role = 'customer' logs in, this is the exact UI they see.
+
+A. Bottom Navigation (4 Tabs):
+
+Home | 2. Orders | 3. Prices | 4. My Account
+
+A.1 Home Page:
+
+Header: "Hello, [Customer Name]!".
+
+Stats Row: Display Total Pickups (lifetime count) and Total Earnings (lifetime sum).
+
+Big Action Card: "Raise Pickup Request" (Starts the booking flow).
+
+Button/Link: "Know Prices" (Navigates to the Prices tab).
+
+Hamburger Menu (Top Left): Slides out with options: Home, Order History, My Account, Privacy Policy, WhatsApp (open chat with business), Logout.
+
+A.2 Orders Page:
+
+Top Filters: Pending | Completed | Cancelled.
+
+Pending: Shows orders awaiting pickup or assigned to a boy.
+
+Completed: Shows historical orders with final weight & amount.
+
+A.3 Prices Page:
+
+Categorized list (e.g., Metals, Plastics, Paper, E-Waste, Glass).
+
+Displays: Item Name + Current Rate (₹/kg). Updated live by Admin.
+
+A.4 My Account Page:
+
+Edit Profile (Name, Phone).
+
+Manage Saved Addresses (Add/Edit/Delete multiple addresses).
+
+Notification Toggle.
+
+A.5 "Raise Pickup Request" Flow (Step-by-Step Modal):
+
+Step 1 (Items): Show list of scrap items with checkboxes + their current price. Include an optional "Upload Photo" button for the scrap pile. Button: "Next →".
+
+Step 2 (Schedule): Date Picker, Time Slot Picker (Morning 9-12, Afternoon 12-3, Evening 3-6), and Address/Location selector (choose saved address, type new, or "Use Current Location"). Button: "Confirm Order".
+
+Step 3 (Success): Show "Pickup Request Raised!" screen. Order appears in the "Pending" tab.
+
+6. PART B: ADMIN PANEL (The Master Control)
+When a user with role = 'admin' logs in. All Admins have full CRUD permissions.
+
+B. Bottom Navigation (5 Tabs):
+
+Dashboard | 2. Orders | 3. Users | 4. Rates | 5. More
+
+B.1 Dashboard:
+
+Live Stats: Today's Total Orders, Today's Revenue, Pending Orders Count, Active Pickup Boys Count.
+
+Recent Activity Feed (e.g., "Ramu completed Order #102").
+
+B.2 Orders (Assignment Hub):
+
+List of all New/Pending customer orders. Click to view details (Items, Address, Photos).
+
+Action: Dropdown to select an Active Pickup Boy (only those clocked in). Tap "Assign Order". Boy receives a Push Notification.
+
+B.3 Users (The CRUD Hub):
+
+Sub-tabs: Customers | Pickup Boys | Admins.
+
+Manage Customers:
+
+Searchable list. Click to view Profile.
+
+Profile contains: Summary (Lifetime Earnings), Tab A (Pending Orders - with Reassign/Cancel), Tab B (Order History), Tab C (Payment Details Ledger).
+
+Action: Add (+) new customer manually (Name, Phone, Address). Action: "Block Customer".
+
+Manage Pickup Boys:
+
+Searchable list. Click to view Profile.
+
+Profile contains: Summary (Total Orders, Commission), Tab A (Today's Pending Assignments), Tab B (Completed History), Tab C (Payment/Commission Tracker - displays "Pending Payout" owed to boy).
+
+Action: Add (+) new boy (Name, Phone, Vehicle Type, Commission %). Action: "Settle Payment" (Admin enters amount paid, reduces Pending Payout). Action: "Deactivate Boy".
+
+Manage Admins:
+
+List of all Admins. Add (+) new Admin (Name, Phone). Remove (Delete) Admin.
+
+B.4 Rates:
+
+Simple table: Category | Item | Rate (₹/kg).
+
+Admin edits numbers and hits "Update Rates". Updates reflect instantly on all Customer apps.
+
+B.5 More:
+
+Admin Profile Settings.
+
+Activity Log: Records all actions (e.g., "Admin Ramesh updated Copper rate", "Admin Sita added Ramu as a boy"). Essential for accountability.
+
+Logout.
+
+7. PART C: PICKUP BOY APP (Field Execution)
+When a user with role = 'pickup_boy' logs in.
+
+C. Bottom Navigation (4 Tabs):
+
+My Tasks | 2. Navigate | 3. Earnings | 4. Profile
+
+C.1 My Tasks:
+
+Top Filters: Pending | In-Progress | Completed.
+
+Pending Card: Shows Customer Name, Address, Items. Buttons: "Start Trip" (moves to In-Progress), "Call Customer".
+
+Order Execution Screen (Tapping a card):
+
+Shows Full Address, Landmark, Phone Number.
+
+Shows Scrap Items and Customer's uploaded photo (if available).
+
+Button: "Navigate" (Opens Google Maps with the address pre-filled).
+
+Button: "Reached & Weigh Scrap" (Opens the Completion Modal).
+
+C.2 The "Weigh & Pay" Modal (Crucial Anti-Scam):
+
+Step 1: Digital number pad to enter the Actual Weight in KGs.
+
+Step 2: App auto-calculates Total Payable to Customer (Weight × Rate).
+
+Step 3: Mandatory Camera trigger for Photo 1 (Scrap on scale with dial visible).
+
+Step 4: Mandatory Camera trigger for Photo 2 (Scrap loaded on vehicle).
+
+Step 5: Boy pays cash/UPI physically. Taps "Request OTP". System sends 4-digit OTP to Customer's app. Boy enters OTP.
+
+Step 6: Taps "Confirm Collection & Payment".
+
+Result: Order moves to Completed. Customer's earnings update. Boy's commission updates. Admin dashboard updates.
+
+C.3 Navigate (Tab 2):
+
+A map view showing the exact GPS pins of all orders assigned to the boy for that day (Route optimization view is a plus).
+
+C.4 Earnings (Tab 3):
+
+Displays: "Total Commission Earned This Month".
+
+Displays: "Pending Payout" (money owed by Admin).
+
+Shows a history of past settlements (e.g., "Admin paid ₹2,000 via Cash on 10th June").
+
+C.5 Profile (Tab 4):
+
+Clock In / Clock Out Toggle:
+
+If Clocked Out -> Admin CANNOT assign new orders to this boy.
+
+Attendance calendar showing working days.
+
+Logout.
+
+8. AUTOMATED INTERCONNECTION (SYSTEM LOGIC)
+Ensure the following backend triggers are built:
+
+On Admin Assign: Push notification sent to the Pickup Boy.
+
+On Boy Completes:
+
+Push notification with receipt + 5-min "Raise Dispute" button sent to Customer.
+
+Customer's total_earnings and total_pickups increment automatically.
+
+Boy's Pending Payout (commission) increments automatically.
+
+Admin's daily revenue counter increments automatically.
+
+On Customer Disputes: Push notification + Red Alert sent to all Admins instantly.
+
+9. DESIGN & UX GUIDELINES
+Use Material Design 3.
+
+Keep color accents Green (for eco-friendly/scrap) and White/Grey for backgrounds.
+
+The app must be offline-first where possible (orders saved locally and synced when internet returns).
+
+Code must be modular (separate folders for Customer/Admin/Pickup screens) to allow for easy future additions (as the user mentioned they want to make changes later).
+
+10. DELIVERABLES EXPECTED
+Generate the complete file structure and codebase for:
+
+React frontend (with state management).
+
+Node.js backend API endpoints (REST/GraphQL).
+
+Firebase/Firestore security rules.
+
+A detailed README.md explaining how to run the project locally.
+
+Start building the complete project now. The app should have simple UI, and the user experience should also be great, remember that the app should be flexible for changes or updates in the future.  
